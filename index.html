@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pipedrive – Contact Group</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fff;
+      color: #333;
+      font-size: 13px;
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #e0e0e0;
+      background: #fff;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 13px 8px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      color: #666;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab-btn.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+    .tab-btn:hover:not(.active) { color: #333; background: #f5f5f5; }
+    .tab-panel { display: none; padding: 12px; }
+    .tab-panel.active { display: block; }
+    .info-strip {
+      padding: 7px 12px;
+      background: #f0f4ff;
+      border-bottom: 1px solid #dce6ff;
+      font-size: 11px;
+      color: #555;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .info-strip .dot { width: 7px; height: 7px; border-radius: 50%; background: #aaa; flex-shrink: 0; }
+    .info-strip .dot.ready { background: #34a853; }
+    .info-strip .dot.error { background: #ea4335; }
+    .card { background: #fff; border: 1px solid #e8eaf0; border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: #eef2fb;
+      cursor: pointer;
+      user-select: none;
+    }
+    .card-header .card-title { font-weight: 600; font-size: 13px; color: #1f3a93; }
+    .card-header .chevron { font-size: 13px; color: #666; transition: transform 0.2s; }
+    .card-header.collapsed .chevron { transform: rotate(-90deg); }
+    .card-body.hidden { display: none; }
+    .field-row { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; }
+    .field-row:last-child { border-bottom: none; }
+    .field-label { font-size: 11px; color: #888; margin-bottom: 2px; }
+    .field-value { font-size: 13px; color: #222; font-weight: 500; word-break: break-all; }
+    .field-value.empty { color: #bbb; font-weight: 400; }
+    .state-msg { text-align: center; padding: 32px 16px; color: #aaa; font-size: 12px; }
+    .state-msg .icon { font-size: 28px; margin-bottom: 8px; }
+    .state-msg.error-msg { color: #ea4335; }
+    .loading-wrap { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 32px 16px; color: #888; font-size: 12px; }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid #ddd; border-top-color: #1a73e8; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .context-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #e8f0fe;
+      color: #1a73e8;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 500;
+      margin-bottom: 12px;
+    }
+    .retry-btn { margin-top: 10px; padding: 6px 14px; background: #1a73e8; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    .retry-btn:hover { background: #1558b0; }
+    .not-found-bar { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border: 1px solid #e0e0e0; border-radius: 8px; color: #666; font-size: 12px; margin-bottom: 10px; background: #fafafa; }
+    .not-found-bar .nf-icon { color: #aaa; font-size: 14px; }
+    .create-btn { display: flex; align-items: center; gap: 6px; padding: 9px 14px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; color: #1a73e8; font-size: 13px; font-weight: 500; cursor: pointer; width: 100%; transition: background 0.15s; }
+    .create-btn:hover { background: #f0f4ff; }
+    .create-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .create-form { border: 1px solid #d0d7de; border-radius: 8px; padding: 14px; margin-top: 8px; background: #fafbff; }
+    .create-form h4 { font-size: 13px; font-weight: 600; color: #1f3a93; margin-bottom: 12px; }
+    .form-field { margin-bottom: 10px; }
+    .form-field label { display: block; font-size: 11px; color: #666; margin-bottom: 4px; }
+    .form-field input { width: 100%; padding: 7px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; outline: none; }
+    .form-field input:focus { border-color: #1a73e8; }
+    .form-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .btn-primary { flex: 1; padding: 8px; background: #1a73e8; color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; }
+    .btn-primary:hover { background: #1558b0; }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-cancel { padding: 8px 14px; background: #fff; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; cursor: pointer; color: #555; }
+    .btn-cancel:hover { background: #f5f5f5; }
+    .note-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 14px;
+      background: #fffbea;
+      border: 1px solid #ffe58f;
+      border-radius: 8px;
+      font-size: 11px;
+      color: #7a5500;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Status strip -->
+  <div class="info-strip">
+    <span class="dot" id="status-dot"></span>
+    <span id="status-text">Initializing…</span>
+  </div>
+
+  <!-- Tabs: Contact Group module shows Companies & Deals only -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('companies', this)">Companies</button>
+    <button class="tab-btn" onclick="switchTab('deals', this)">Deals</button>
+  </div>
+
+  <!-- Companies Panel -->
+  <div id="tab-companies" class="tab-panel active">
+    <div id="companies-content">
+      <div class="loading-wrap"><span class="spinner"></span> Loading…</div>
+    </div>
+  </div>
+
+  <!-- Deals Panel -->
+  <div id="tab-deals" class="tab-panel">
+    <div id="deals-content">
+      <div class="state-msg"><div class="icon">🤝</div>Switch to this tab to load deals.</div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/bolddesk-final-framework-sdk@1.0.37/build/baf_sdk.min.js"></script>
+  <script>
+    // ── State ────────────────────────────────────────────────────────────────
+    let client       = null;
+    let groupName    = null;   // contactGroupName from BoldDesk
+    let groupDomain  = null;   // contactGroupDomain from BoldDesk (used for Pipedrive org search)
+    let orgId        = null;   // Pipedrive organization id resolved from group name
+    let currentTab   = 'companies';
+    const loaded     = { companies: false, deals: false };
+
+    // ── SDK Init ─────────────────────────────────────────────────────────────
+    const _params  = new URLSearchParams(window.location.search);
+    const _origin  = _params.get('origin')   || '*';
+    const _appGuid = _params.get('app_guid') || _params.get('appGuid') || undefined;
+
+    function setStatus(ready, text) {
+      document.getElementById('status-dot').className = 'dot ' + (ready ? 'ready' : 'error');
+      document.getElementById('status-text').textContent = text;
+    }
+
+    if (typeof BAFClient === 'undefined') {
+      setStatus(false, 'SDK failed to load');
+      showError('companies-content', 'BoldDesk SDK not available.');
+    } else {
+      client = BAFClient.init();
+      client.origin  = _origin;
+      client.appGuid = _appGuid;
+
+      if (typeof client === 'object' && client !== null && typeof client.request === 'function') {
+        setStatus(true, 'SDK ready — fetching contact group…');
+        getGroupAndLoad();
+      } else if (client === false) {
+        setStatus(false, 'Missing URL params (origin / app_guid)');
+        showError('companies-content', 'App must be loaded inside BoldDesk as an iframe.');
+      } else {
+        setStatus(false, 'SDK init failed');
+        showError('companies-content', 'SDK initialization failed.');
+      }
+    }
+
+    // ── Get contactGroup details via client.get('contactGroup') ─────────────
+    // BoldDesk contactGroup object: contactGroupName, contactGroupDomain, etc. — NO emailId
+    function getGroupAndLoad() {
+      client.get('contactGroup').then(
+        data => {
+          if (typeof data === 'object' && data !== null) {
+            groupName   = data.contactGroupName || data.name || '';
+            groupDomain = data.contactGroupDomain || '';
+          } else {
+            groupName   = String(data || '');
+            groupDomain = '';
+          }
+          console.log('contactGroup =>', data, '| name:', groupName, '| domain:', groupDomain);
+          setStatus(true, 'Contact Group: ' + groupName);
+          loaded.companies = false;
+          loadTab('companies');
+        },
+        err => {
+          setStatus(false, 'Could not get contactGroup');
+          showError('companies-content',
+            'Could not retrieve contact group: ' + (err && err.message ? err.message : String(err)) +
+            '<br><button class="retry-btn" onclick="getGroupAndLoad()">Retry</button>');
+        }
+      );
+    }
+
+    // ── Tab switching ────────────────────────────────────────────────────────
+    function switchTab(tabName, btn) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + tabName).classList.add('active');
+      currentTab = tabName;
+      loadTab(tabName);
+    }
+
+    function loadTab(tabName) {
+      if (loaded[tabName]) return;
+      if (!groupName) return;
+      loaded[tabName] = true;
+      if (tabName === 'companies') fetchCompanies();
+      if (tabName === 'deals')     fetchDeals();
+    }
+
+    // ── Pipedrive API ─────────────────────────────────────────────────────────
+    const BASE = 'https://api.pipedrive.com/v1';
+    const AUTH_HEADERS = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer {{setting.token}}'
+    };
+
+    function pipedriveGet(url) {
+      return client.request({ url: url, type: 'GET', headers: AUTH_HEADERS });
+    }
+
+    // ── Companies tab ─────────────────────────────────────────────────────────
+    // Search Pipedrive organizations by group name → GET /organizations/{org_id}
+    function fetchCompanies() {
+      showLoading('companies-content');
+      const searchUrl = BASE + '/organizations/search?term=' + encodeURIComponent(groupName) +
+                        '&fields=name&limit=5';
+      pipedriveGet(searchUrl).then(
+        response => {
+          const items = safeItems(response);
+          if (!items.length) {
+            orgId = null;
+            showNoCompany();
+            return;
+          }
+          const org = items[0].item || items[0];
+          orgId = org.id;
+          pipedriveGet(BASE + '/organizations/' + orgId).then(
+            orgResp => {
+              const o = orgResp && orgResp.data ? orgResp.data : null;
+              if (!o) { showNoCompany(); return; }
+              const html = buildCard(o.name || 'Company', [
+                { label: 'Company Name',  value: o.name },
+                { label: 'Address',       value: o.address || null },
+                { label: 'Owner',         value: o.owner_name || (o.owner ? o.owner.name : null) },
+                { label: 'Open Deals',    value: o.open_deals_count != null ? String(o.open_deals_count) : null },
+                { label: 'People Count',  value: o.people_count    != null ? String(o.people_count)    : null }
+              ]);
+              document.getElementById('companies-content').innerHTML =
+                contextChip() + html +
+                '<button class="create-btn" style="margin-top:4px" onclick="showCreateCompanyForm()">+ Create Company</button>' +
+                '<div id="create-company-form"></div>';
+            },
+            err2 => {
+              loaded.companies = false;
+              showError('companies-content', '&#10060; ' + (err2 && err2.message ? err2.message : 'Failed to fetch organisation') +
+                '<br><button class="retry-btn" onclick="loaded.companies=false;loadTab(\'companies\')">Retry</button>');
+            }
+          );
+        },
+        err => {
+          loaded.companies = false;
+          showError('companies-content', '&#10060; ' + (err && err.message ? err.message : 'Failed to search organisations') +
+            '<br><button class="retry-btn" onclick="loaded.companies=false;loadTab(\'companies\')">Retry</button>');
+        }
+      );
+    }
+
+    function showNoCompany() {
+      document.getElementById('companies-content').innerHTML =
+        contextChip() +
+        '<div class="not-found-bar"><span class="nf-icon">&#9432;</span> No company found</div>' +
+        '<button class="create-btn" onclick="showCreateCompanyForm()">+ Create Company</button>' +
+        '<div id="create-company-form"></div>';
+    }
+
+    function showCreateCompanyForm() {
+      const wrap = document.getElementById('create-company-form');
+      if (wrap && wrap.innerHTML.trim()) { wrap.innerHTML = ''; return; }
+      wrap.innerHTML =
+        '<div class="create-form">' +
+          '<h4>Create Company</h4>' +
+          '<div class="form-field"><label>Company Name *</label>' +
+            '<input id="cc-name" type="text" placeholder="e.g. Acme Corp" /></div>' +
+          '<div class="form-field"><label>Address</label>' +
+            '<input id="cc-address" type="text" placeholder="e.g. 123 Main St" /></div>' +
+          '<div class="form-actions">' +
+            '<button class="btn-primary" id="cc-submit" onclick="submitCreateCompany()">Create</button>' +
+            '<button class="btn-cancel" onclick="document.getElementById(\'create-company-form\').innerHTML=\'\'">Cancel</button>' +
+          '</div>' +
+          '<div id="cc-msg" style="margin-top:8px;font-size:12px;"></div>' +
+        '</div>';
+    }
+
+    function submitCreateCompany() {
+      const name    = (document.getElementById('cc-name').value    || '').trim();
+      const address = (document.getElementById('cc-address').value || '').trim();
+      if (!name) { document.getElementById('cc-msg').innerHTML = '<span style="color:#ea4335">Company name is required.</span>'; return; }
+      const btn = document.getElementById('cc-submit');
+      btn.disabled = true; btn.textContent = 'Creating…';
+      document.getElementById('cc-msg').innerHTML = '';
+
+      const orgBody = { name: name };
+      if (address) orgBody.address = address;
+
+      client.request({ url: BASE + '/organizations', type: 'POST', headers: AUTH_HEADERS, data: JSON.stringify(orgBody) }).then(
+        res => {
+          if (res && res.data && res.data.id) {
+            orgId = res.data.id;
+            loaded.companies = false;
+            loadTab('companies');
+          } else {
+            document.getElementById('cc-msg').innerHTML = '<span style="color:#ea4335">Create failed. Try again.</span>';
+            btn.disabled = false; btn.textContent = 'Create';
+          }
+        },
+        err => {
+          document.getElementById('cc-msg').innerHTML = '<span style="color:#ea4335">&#10060; ' + escHtml(err && err.message ? err.message : 'Error') + '</span>';
+          btn.disabled = false; btn.textContent = 'Create';
+        }
+      );
+    }
+
+    // ── Deals tab ─────────────────────────────────────────────────────────────
+    // GET /persons/{person_id}/deals
+    function fetchDeals() {
+      showLoading('deals-content');
+      // If no personId resolved yet, try again
+      if (!personId) {
+        resolvePersonId(() => {
+          if (!personId) { showNoDeals(); return; }
+          _fetchDealsForPerson();
+        });
+        return;
+      }
+      _fetchDealsForPerson();
+    }
+
+    function _fetchDealsForPerson() {
+      pipedriveGet(BASE + '/persons/' + personId + '/deals').then(
+        dealsResp => {
+          const deals = dealsResp && dealsResp.data ? dealsResp.data : [];
+          if (!deals.length) { showNoDeals(); return; }
+          renderDeals(deals.map(d => ({ item: d })));
+        },
+        err => {
+          loaded.deals = false;
+          showError('deals-content', '&#10060; ' + (err && err.message ? err.message : 'Failed to fetch deals') +
+            '<br><button class="retry-btn" onclick="loaded.deals=false;loadTab(\'deals\')">Retry</button>');
+        }
+      );
+    }
+
+    function showNoDeals() {
+      document.getElementById('deals-content').innerHTML =
+        contextChip() +
+        (personId
+          ? ''
+          : '<div class="note-bar">&#9432; No matching Pipedrive contact for this group email. A contact will be created automatically when you create a deal.</div>') +
+        '<div class="not-found-bar"><span class="nf-icon">&#9432;</span> No deal found</div>' +
+        '<button class="create-btn" onclick="showCreateDealForm()">+ Create Deal</button>' +
+        '<div id="create-deal-form"></div>';
+    }
+
+    function showCreateDealForm() {
+      const wrap = document.getElementById('create-deal-form');
+      if (wrap && wrap.innerHTML.trim()) { wrap.innerHTML = ''; return; }
+      wrap.innerHTML =
+        '<div class="create-form">' +
+          '<h4>Create Deal</h4>' +
+          '<div class="form-field"><label>Deal Title *</label>' +
+            '<input id="cd-title" type="text" placeholder="e.g. New Project" /></div>' +
+          '<div class="form-field"><label>Value</label>' +
+            '<input id="cd-value" type="number" placeholder="e.g. 5000" /></div>' +
+          (personId ? '' :
+            '<div class="form-field"><label>Contact Full Name * (required to create a linked contact)</label>' +
+              '<input id="cd-person-name" type="text" placeholder="e.g. John Doe" /></div>') +
+          '<div class="form-actions">' +
+            '<button class="btn-primary" id="cd-submit" onclick="submitCreateDeal()">Create</button>' +
+            '<button class="btn-cancel" onclick="document.getElementById(\'create-deal-form\').innerHTML=\'\'">Cancel</button>' +
+          '</div>' +
+          '<div id="cd-msg" style="margin-top:8px;font-size:12px;"></div>' +
+        '</div>';
+    }
+
+    function submitCreateDeal() {
+      const title = (document.getElementById('cd-title').value || '').trim();
+      const value = (document.getElementById('cd-value').value || '').trim();
+      if (!title) { document.getElementById('cd-msg').innerHTML = '<span style="color:#ea4335">Deal title is required.</span>'; return; }
+      const btn = document.getElementById('cd-submit');
+      btn.disabled = true; btn.textContent = 'Creating…';
+      document.getElementById('cd-msg').innerHTML = '';
+
+      function createDealWithPerson(pid) {
+        const body = { title: title, person_id: pid };
+        if (value) body.value = parseFloat(value);
+        client.request({ url: BASE + '/deals', type: 'POST', headers: AUTH_HEADERS, data: JSON.stringify(body) }).then(
+          res => {
+            if (res && res.data && res.data.id) {
+              loaded.deals = false;
+              loadTab('deals');
+            } else {
+              document.getElementById('cd-msg').innerHTML = '<span style="color:#ea4335">Create failed. Try again.</span>';
+              btn.disabled = false; btn.textContent = 'Create';
+            }
+          },
+          err => {
+            document.getElementById('cd-msg').innerHTML = '<span style="color:#ea4335">&#10060; ' + escHtml(err && err.message ? err.message : 'Error') + '</span>';
+            btn.disabled = false; btn.textContent = 'Create';
+          }
+        );
+      }
+
+      if (personId) {
+        createDealWithPerson(personId);
+      } else {
+        // Create person first then deal
+        const personNameEl = document.getElementById('cd-person-name');
+        const personName   = personNameEl ? personNameEl.value.trim() : '';
+        if (!personName) {
+          document.getElementById('cd-msg').innerHTML = '<span style="color:#ea4335">Contact full name is required.</span>';
+          btn.disabled = false; btn.textContent = 'Create';
+          return;
+        }
+        client.request({ url: BASE + '/persons', type: 'POST', headers: AUTH_HEADERS,
+          data: JSON.stringify({ name: personName, email: groupEmail }) }).then(
+          pRes => {
+            if (pRes && pRes.data && pRes.data.id) {
+              personId = pRes.data.id;
+              createDealWithPerson(personId);
+            } else {
+              document.getElementById('cd-msg').innerHTML = '<span style="color:#ea4335">Could not create contact. Try again.</span>';
+              btn.disabled = false; btn.textContent = 'Create';
+            }
+          },
+          err => {
+            document.getElementById('cd-msg').innerHTML = '<span style="color:#ea4335">&#10060; ' + escHtml(err && err.message ? err.message : 'Error') + '</span>';
+            btn.disabled = false; btn.textContent = 'Create';
+          }
+        );
+      }
+    }
+
+    function renderDeals(items) {
+      const html = items.map(item => {
+        const d = item.item || item;
+        const val = d.value != null
+          ? (d.currency ? d.currency + ' ' : '') + Number(d.value).toLocaleString()
+          : null;
+        return buildCard(d.title || 'Deal', [
+          { label: 'Title',      value: d.title },
+          { label: 'Value',      value: val },
+          { label: 'Status',     value: d.status ? capitalise(d.status) : null },
+          { label: 'Stage',      value: d.stage_name || (d.stage ? d.stage.name : null) },
+          { label: 'Close Date', value: d.close_time || d.expected_close_date || null }
+        ]);
+      }).join('');
+      document.getElementById('deals-content').innerHTML =
+        contextChip() + html +
+        '<button class="create-btn" style="margin-top:4px" onclick="showCreateDealForm()">+ Create Deal</button>' +
+        '<div id="create-deal-form"></div>';
+    }
+
+    // ── UI Builders ───────────────────────────────────────────────────────────
+    function buildCard(title, fields) {
+      const rows = fields.map(f => {
+        const val = f.value ? String(f.value) : null;
+        return '<div class="field-row">' +
+          '<div class="field-label">' + escHtml(f.label) + '</div>' +
+          '<div class="field-value' + (val ? '' : ' empty') + '">' + escHtml(val || '--') + '</div>' +
+          '</div>';
+      }).join('');
+      return '<div class="card">' +
+        '<div class="card-header" onclick="toggleCard(this)">' +
+          '<span class="card-title">' + escHtml(title) + '</span>' +
+          '<span class="chevron">&#8963;</span>' +
+        '</div>' +
+        '<div class="card-body">' + rows + '</div>' +
+        '</div>';
+    }
+
+    function toggleCard(header) {
+      header.classList.toggle('collapsed');
+      header.nextElementSibling.classList.toggle('hidden');
+    }
+
+    function contextChip() {
+      const label = groupName || groupEmail;
+      return label
+        ? '<div class="context-chip">&#x1F465; ' + escHtml(label) + '</div>'
+        : '';
+    }
+
+    function showLoading(id) {
+      document.getElementById(id).innerHTML =
+        '<div class="loading-wrap"><span class="spinner"></span> Loading…</div>';
+    }
+
+    function showError(id, html) {
+      document.getElementById(id).innerHTML =
+        '<div class="state-msg error-msg"><div class="icon">&#9888;&#65039;</div>' + html + '</div>';
+    }
+
+    // ── Utilities ─────────────────────────────────────────────────────────────
+    function safeItems(response) {
+      if (!response) return [];
+      if (response.data && response.data.items) return response.data.items;
+      if (Array.isArray(response.data)) return response.data;
+      return [];
+    }
+
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function capitalise(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+  </script>
+</body>
+</html>
