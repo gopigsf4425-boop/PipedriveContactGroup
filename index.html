@@ -345,22 +345,29 @@
     }
 
     // ── Deals tab ─────────────────────────────────────────────────────────────
-    // GET /persons/{person_id}/deals
+    // GET /organizations/{org_id}/deals
     function fetchDeals() {
       showLoading('deals-content');
-      // If no personId resolved yet, try again
-      if (!personId) {
-        resolvePersonId(() => {
-          if (!personId) { showNoDeals(); return; }
-          _fetchDealsForPerson();
-        });
+      if (!orgId) {
+        // Try resolving orgId via org search first
+        const searchUrl = BASE + '/organizations/search?term=' + encodeURIComponent(groupName) +
+                          '&fields=name&limit=5';
+        pipedriveGet(searchUrl).then(
+          response => {
+            const items = safeItems(response);
+            orgId = items.length ? (items[0].item || items[0]).id : null;
+            if (!orgId) { showNoDeals(); return; }
+            _fetchDealsForOrg();
+          },
+          () => { showNoDeals(); }
+        );
         return;
       }
-      _fetchDealsForPerson();
+      _fetchDealsForOrg();
     }
 
-    function _fetchDealsForPerson() {
-      pipedriveGet(BASE + '/persons/' + personId + '/deals').then(
+    function _fetchDealsForOrg() {
+      pipedriveGet(BASE + '/organizations/' + orgId + '/deals').then(
         dealsResp => {
           const deals = dealsResp && dealsResp.data ? dealsResp.data : [];
           if (!deals.length) { showNoDeals(); return; }
@@ -377,9 +384,6 @@
     function showNoDeals() {
       document.getElementById('deals-content').innerHTML =
         contextChip() +
-        (personId
-          ? ''
-          : '<div class="note-bar">&#9432; No matching Pipedrive contact for this group email. A contact will be created automatically when you create a deal.</div>') +
         '<div class="not-found-bar"><span class="nf-icon">&#9432;</span> No deal found</div>' +
         '<button class="create-btn" onclick="showCreateDealForm()">+ Create Deal</button>' +
         '<div id="create-deal-form"></div>';
@@ -395,9 +399,6 @@
             '<input id="cd-title" type="text" placeholder="e.g. New Project" /></div>' +
           '<div class="form-field"><label>Value</label>' +
             '<input id="cd-value" type="number" placeholder="e.g. 5000" /></div>' +
-          (personId ? '' :
-            '<div class="form-field"><label>Contact Full Name * (required to create a linked contact)</label>' +
-              '<input id="cd-person-name" type="text" placeholder="e.g. John Doe" /></div>') +
           '<div class="form-actions">' +
             '<button class="btn-primary" id="cd-submit" onclick="submitCreateDeal()">Create</button>' +
             '<button class="btn-cancel" onclick="document.getElementById(\'create-deal-form\').innerHTML=\'\'">Cancel</button>' +
@@ -414,54 +415,25 @@
       btn.disabled = true; btn.textContent = 'Creating…';
       document.getElementById('cd-msg').innerHTML = '';
 
-      function createDealWithPerson(pid) {
-        const body = { title: title, person_id: pid };
-        if (value) body.value = parseFloat(value);
-        client.request({ url: BASE + '/deals', type: 'POST', headers: AUTH_HEADERS, data: JSON.stringify(body) }).then(
-          res => {
-            if (res && res.data && res.data.id) {
-              loaded.deals = false;
-              loadTab('deals');
-            } else {
-              document.getElementById('cd-msg').innerHTML = '<span style="color:#ea4335">Create failed. Try again.</span>';
-              btn.disabled = false; btn.textContent = 'Create';
-            }
-          },
-          err => {
-            document.getElementById('cd-msg').innerHTML = '<span style="color:#ea4335">&#10060; ' + escHtml(err && err.message ? err.message : 'Error') + '</span>';
-            btn.disabled = false; btn.textContent = 'Create';
-          }
-        );
-      }
+      const body = { title: title };
+      if (orgId)  body.org_id = orgId;
+      if (value)  body.value  = parseFloat(value);
 
-      if (personId) {
-        createDealWithPerson(personId);
-      } else {
-        // Create person first then deal
-        const personNameEl = document.getElementById('cd-person-name');
-        const personName   = personNameEl ? personNameEl.value.trim() : '';
-        if (!personName) {
-          document.getElementById('cd-msg').innerHTML = '<span style="color:#ea4335">Contact full name is required.</span>';
-          btn.disabled = false; btn.textContent = 'Create';
-          return;
-        }
-        client.request({ url: BASE + '/persons', type: 'POST', headers: AUTH_HEADERS,
-          data: JSON.stringify({ name: personName, email: groupEmail }) }).then(
-          pRes => {
-            if (pRes && pRes.data && pRes.data.id) {
-              personId = pRes.data.id;
-              createDealWithPerson(personId);
-            } else {
-              document.getElementById('cd-msg').innerHTML = '<span style="color:#ea4335">Could not create contact. Try again.</span>';
-              btn.disabled = false; btn.textContent = 'Create';
-            }
-          },
-          err => {
-            document.getElementById('cd-msg').innerHTML = '<span style="color:#ea4335">&#10060; ' + escHtml(err && err.message ? err.message : 'Error') + '</span>';
+      client.request({ url: BASE + '/deals', type: 'POST', headers: AUTH_HEADERS, data: JSON.stringify(body) }).then(
+        res => {
+          if (res && res.data && res.data.id) {
+            loaded.deals = false;
+            loadTab('deals');
+          } else {
+            document.getElementById('cd-msg').innerHTML = '<span style="color:#ea4335">Create failed. Try again.</span>';
             btn.disabled = false; btn.textContent = 'Create';
           }
-        );
-      }
+        },
+        err => {
+          document.getElementById('cd-msg').innerHTML = '<span style="color:#ea4335">&#10060; ' + escHtml(err && err.message ? err.message : 'Error') + '</span>';
+          btn.disabled = false; btn.textContent = 'Create';
+        }
+      );
     }
 
     function renderDeals(items) {
@@ -508,9 +480,8 @@
     }
 
     function contextChip() {
-      const label = groupName || groupEmail;
-      return label
-        ? '<div class="context-chip">&#x1F465; ' + escHtml(label) + '</div>'
+      return groupName
+        ? '<div class="context-chip">&#x1F465; ' + escHtml(groupName) + '</div>'
         : '';
     }
 
