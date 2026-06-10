@@ -328,8 +328,18 @@
         res => {
           if (res && res.data && res.data.id) {
             orgId = res.data.id;
-            loaded.companies = false;
-            loadTab('companies');
+            loaded.companies = true;
+            // Render details directly from the creation response — don't re-search
+            // (Pipedrive search index may lag and return no results immediately)
+            const o = res.data;
+            const html = buildCard(o.name || name, [
+              { label: 'Company Name',  value: o.name },
+              { label: 'Address',       value: o.address || null },
+              { label: 'Owner',         value: o.owner_name || (o.owner ? o.owner.name : null) },
+              { label: 'Open Deals',    value: o.open_deals_count != null ? String(o.open_deals_count) : null },
+              { label: 'People Count',  value: o.people_count    != null ? String(o.people_count)    : null }
+            ]);
+            document.getElementById('companies-content').innerHTML = contextChip() + html;
           } else {
             document.getElementById('cc-msg').innerHTML = '<span style="color:#ea4335">Create failed. Try again.</span>';
             btn.disabled = false; btn.textContent = 'Create';
