@@ -270,9 +270,7 @@
                 { label: 'People Count',  value: o.people_count    != null ? String(o.people_count)    : null }
               ]);
               document.getElementById('companies-content').innerHTML =
-                contextChip() + html +
-                '<button class="create-btn" style="margin-top:4px" onclick="showCreateCompanyForm()">+ Create Company</button>' +
-                '<div id="create-company-form"></div>';
+                contextChip() + html;
             },
             err2 => {
               loaded.companies = false;
@@ -304,7 +302,7 @@
         '<div class="create-form">' +
           '<h4>Create Company</h4>' +
           '<div class="form-field"><label>Company Name *</label>' +
-            '<input id="cc-name" type="text" placeholder="e.g. Acme Corp" /></div>' +
+            '<input id="cc-name" type="text" placeholder="e.g. Acme Corp" value="' + escHtml(groupName || '') + '" /></div>' +
           '<div class="form-field"><label>Address</label>' +
             '<input id="cc-address" type="text" placeholder="e.g. 123 Main St" /></div>' +
           '<div class="form-actions">' +
